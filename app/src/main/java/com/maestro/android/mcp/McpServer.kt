@@ -11,10 +11,10 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.ktor.server.sse.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.serialization.json.*
+import java.io.Writer
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 
@@ -44,7 +44,6 @@ object McpServer {
                 allowMethod(HttpMethod.Get)
                 allowMethod(HttpMethod.Delete)
             }
-            install(SSE)
 
             routing {
                 get("/health") {
@@ -52,24 +51,25 @@ object McpServer {
                 }
 
                 // SSE transport: client connects here to receive events
-                sse("/sse") {
+                get("/sse") {
                     val sessionId = UUID.randomUUID().toString()
                     val channel = Channel<String>(Channel.BUFFERED)
                     sessions[sessionId] = channel
 
-                    // Send endpoint event so client knows where to POST
-                    send(
-                        data = "/messages?sessionId=$sessionId",
-                        event = "endpoint"
-                    )
+                    call.respondTextWriter(contentType = ContentType.Text.EventStream) {
+                        // Send endpoint event so client knows where to POST
+                        writeSseEvent(this, "endpoint", "/messages?sessionId=$sessionId")
+                        flush()
 
-                    try {
-                        for (message in channel) {
-                            send(data = message, event = "message")
+                        try {
+                            for (message in channel) {
+                                writeSseEvent(this, "message", message)
+                                flush()
+                            }
+                        } finally {
+                            sessions.remove(sessionId)
+                            channel.close()
                         }
-                    } finally {
-                        sessions.remove(sessionId)
-                        channel.close()
                     }
                 }
 
@@ -117,6 +117,15 @@ object McpServer {
         server = null
         sessions.values.forEach { it.close() }
         sessions.clear()
+    }
+
+    private fun writeSseEvent(writer: Writer, event: String, data: String) {
+        writer.write("event: $event\n")
+        // Split data by newlines for proper SSE format
+        for (line in data.lines()) {
+            writer.write("data: $line\n")
+        }
+        writer.write("\n")
     }
 
     private suspend fun handleJsonRpc(body: String): String? {
