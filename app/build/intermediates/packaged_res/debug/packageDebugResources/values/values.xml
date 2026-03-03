@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="app_name">Maestro</string>
-    <style name="Theme.Maestro" parent="android:Theme.Material.NoActionBar">
-        <item name="android:statusBarColor">#1a1a2e</item>
-        <item name="android:navigationBarColor">#1a1a2e</item>
-        <item name="android:windowBackground">#1a1a2e</item>
-    </style>
-</resources>
