@@ -69,6 +69,10 @@ class AppDataStore(private val context: Context) {
     }
 
     suspend fun loadServerUrl(): String {
-        return context.dataStore.data.map { it[KEY_SERVER_URL] ?: "http://192.168.1.100:29171" }.first()
+        return context.dataStore.data.map { it[KEY_SERVER_URL] ?: "" }.first()
+    }
+
+    suspend fun isServerConfigured(): Boolean {
+        return context.dataStore.data.map { it[KEY_SERVER_URL] != null }.first()
     }
 }

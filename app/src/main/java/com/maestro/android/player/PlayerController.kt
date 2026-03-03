@@ -52,6 +52,10 @@ class PlayerController(context: Context) {
         return dataStore.loadServerUrl()
     }
 
+    suspend fun isServerConfigured(): Boolean {
+        return dataStore.isServerConfigured()
+    }
+
     suspend fun play(track: Track) {
         val current = _state.value.currentTrack
         if (current != null && _state.value.state != PlaybackState.STOPPED) {
