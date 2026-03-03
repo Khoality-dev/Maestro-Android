@@ -48,10 +48,8 @@ class PlayerController(context: Context) {
         _api = MaestroApi(url)
     }
 
-    fun getServerUrl(): String {
-        return scope.async { dataStore.loadServerUrl() }.let {
-            runBlocking { it.await() }
-        }
+    suspend fun getServerUrl(): String {
+        return dataStore.loadServerUrl()
     }
 
     suspend fun play(track: Track) {
