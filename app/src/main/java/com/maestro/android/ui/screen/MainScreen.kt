@@ -46,11 +46,7 @@ fun MainScreen(viewModel: PlayerViewModel) {
             selectedTabIndex = pagerState.currentPage,
             containerColor = Surface,
             contentColor = Primary,
-            indicator = {
-                TabRowDefaults.SecondaryIndicator(
-                    color = Primary
-                )
-            }
+            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outline) }
         ) {
             Tab(
                 selected = pagerState.currentPage == 0,
