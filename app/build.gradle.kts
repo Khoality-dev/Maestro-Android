@@ -66,8 +66,9 @@ dependencies {
     implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
     implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
-    // MCP SDK (includes Ktor server for SSE/streamable HTTP transport)
+    // MCP SDK + Ktor CIO server engine
     implementation("io.modelcontextprotocol:kotlin-sdk:0.8.3")
+    implementation("io.ktor:ktor-server-cio:$ktorVersion")
 
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
