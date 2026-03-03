@@ -1,5 +1,6 @@
 package com.maestro.android.player
 
+import android.app.PendingIntent
 import android.content.Intent
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
@@ -11,7 +12,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
-import com.maestro.android.data.model.PlaybackState
+import com.maestro.android.MainActivity
 import com.maestro.android.data.model.Track
 import kotlinx.coroutines.*
 
@@ -41,14 +42,8 @@ class PlaybackService : MediaSessionService() {
 
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
-                when (playbackState) {
-                    Player.STATE_ENDED -> {
-                        controller.onTrackEnded()
-                    }
-                    Player.STATE_READY -> {
-                        if (player.isPlaying) startPositionUpdates()
-                    }
-                    else -> {}
+                if (playbackState == Player.STATE_ENDED) {
+                    controller.onTrackEnded()
                 }
             }
 
@@ -63,14 +58,31 @@ class PlaybackService : MediaSessionService() {
 
         player.volume = controller.state.value.volume
 
-        mediaSession = MediaSession.Builder(this, player).build()
+        val sessionActivityIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivityIntent)
+            .build()
         exoPlayer = player
 
         controller.onPlayUrl = { url, track -> playUrl(url, track) }
         controller.onPause = { player.pause() }
         controller.onResume = { player.play() }
-        controller.onStop = { player.stop(); player.clearMediaItems() }
+        controller.onStop = {
+            player.stop()
+            player.clearMediaItems()
+            stopSelf()
+        }
         controller.onVolumeChange = { v -> player.volume = v }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        super.onStartCommand(intent, flags, startId)
+        return START_STICKY
     }
 
     private fun playUrl(url: String, track: Track) {

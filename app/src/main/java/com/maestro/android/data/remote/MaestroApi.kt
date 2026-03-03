@@ -7,6 +7,7 @@ import io.ktor.client.engine.okhttp.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -15,8 +16,8 @@ data class SearchResponse(val results: List<Track>)
 
 @Serializable
 data class ExtractResponse(
-    val stream_url: String,
-    val duration: Long? = null,
+    @SerialName("stream_url") val streamUrl: String,
+    val duration: Double? = null,
     val title: String? = null,
     val artist: String? = null
 )
@@ -25,7 +26,11 @@ class MaestroApi(private val baseUrl: String) {
 
     private val client = HttpClient(OkHttp) {
         install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
+            json(Json {
+                ignoreUnknownKeys = true
+                isLenient = true
+                coerceInputValues = true
+            })
         }
     }
 

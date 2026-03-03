@@ -7,7 +7,7 @@ data class Track(
     val id: String,
     val title: String,
     val artist: String? = null,
-    val duration: Long? = null,
+    val duration: Double? = null,
     val thumbnail: String? = null,
     val url: String = ""
 )

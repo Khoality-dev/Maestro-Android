@@ -83,11 +83,11 @@ class PlayerController(context: Context) {
                     state = PlaybackState.PLAYING,
                     currentTrack = updatedTrack,
                     position = 0L,
-                    duration = (updatedTrack.duration ?: 0L) * 1000
+                    duration = ((updatedTrack.duration ?: 0.0) * 1000).toLong()
                 )
             }
             addToHistory(updatedTrack)
-            onPlayUrl?.invoke(extracted.stream_url, updatedTrack)
+            onPlayUrl?.invoke(extracted.streamUrl, updatedTrack)
         } catch (e: Exception) {
             Log.e("PlayerController", "Failed to start track: ${e.message}")
             // Skip to next if extraction fails

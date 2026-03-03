@@ -46,7 +46,7 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     private fun ensureServiceStarted() {
         if (!serviceStarted) {
             val intent = Intent(context, PlaybackService::class.java)
-            context.startForegroundService(intent)
+            context.startService(intent)
             serviceStarted = true
         }
     }
@@ -95,7 +95,6 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     fun completeSetup(url: String) {
         updateServerUrl(url)
         _needsSetup.value = false
-        ensureServiceStarted()
     }
 
     fun updateServerUrl(url: String) {
