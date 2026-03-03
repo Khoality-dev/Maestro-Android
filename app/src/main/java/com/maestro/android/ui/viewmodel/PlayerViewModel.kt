@@ -33,8 +33,6 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     private val _needsSetup = MutableStateFlow(true)
     val needsSetup: StateFlow<Boolean> = _needsSetup.asStateFlow()
 
-    private var serviceStarted = false
-
     init {
         viewModelScope.launch {
             val url = controller.getServerUrl()
@@ -44,11 +42,8 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     }
 
     private fun ensureServiceStarted() {
-        if (!serviceStarted) {
-            val intent = Intent(context, PlaybackService::class.java)
-            context.startService(intent)
-            serviceStarted = true
-        }
+        val intent = Intent(context, PlaybackService::class.java)
+        context.startService(intent)
     }
 
     fun search(query: String) {

@@ -155,6 +155,11 @@ class PlaybackService : MediaSessionService() {
     override fun onDestroy() {
         positionJob?.cancel()
         scope.cancel()
+        controller.onPlayUrl = null
+        controller.onPause = null
+        controller.onResume = null
+        controller.onStop = null
+        controller.onVolumeChange = null
         mediaSession?.run {
             player.release()
             release()
