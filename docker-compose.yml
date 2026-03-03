@@ -1,0 +1,6 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "29171:29171"
+    restart: unless-stopped
