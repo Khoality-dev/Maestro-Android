@@ -2,10 +2,10 @@ package com.maestro.android.mcp
 
 import com.maestro.android.data.model.Track
 import com.maestro.android.player.PlayerController
-import io.modelcontextprotocol.kotlin.sdk.CallToolResult
-import io.modelcontextprotocol.kotlin.sdk.TextContent
-import io.modelcontextprotocol.kotlin.sdk.Tool
 import io.modelcontextprotocol.kotlin.sdk.server.Server
+import io.modelcontextprotocol.kotlin.sdk.types.CallToolResult
+import io.modelcontextprotocol.kotlin.sdk.types.TextContent
+import io.modelcontextprotocol.kotlin.sdk.types.ToolSchema
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
@@ -179,8 +179,8 @@ object McpTools {
 
     // --- Schema helpers ---
 
-    private fun toolSchema(vararg properties: Pair<String, JsonObject>): Tool.Input {
-        return Tool.Input(
+    private fun toolSchema(vararg properties: Pair<String, JsonObject>): ToolSchema {
+        return ToolSchema(
             properties = buildJsonObject {
                 properties.forEach { (k, v) -> put(k, v) }
             },

@@ -46,13 +46,10 @@ fun MainScreen(viewModel: PlayerViewModel) {
             selectedTabIndex = pagerState.currentPage,
             containerColor = Surface,
             contentColor = Primary,
-            indicator = { tabPositions ->
-                if (pagerState.currentPage < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[pagerState.currentPage]),
-                        color = Primary
-                    )
-                }
+            indicator = {
+                TabRowDefaults.SecondaryIndicator(
+                    color = Primary
+                )
             }
         ) {
             Tab(
