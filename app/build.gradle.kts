@@ -55,9 +55,11 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-service:2.8.7")
 
-    // Media3 ExoPlayer + MediaSession
+    // Media3 ExoPlayer + MediaSession + Cache
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-session:1.5.1")
+    implementation("androidx.media3:media3-datasource:1.5.1")
+    implementation("androidx.media3:media3-database:1.5.1")
 
     // Ktor (HTTP client for maestro-server API)
     val ktorVersion = "3.0.3"

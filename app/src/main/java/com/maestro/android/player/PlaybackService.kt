@@ -9,12 +9,19 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.maestro.android.MainActivity
 import com.maestro.android.data.model.Track
 import kotlinx.coroutines.*
+import java.io.File
 
 class PlaybackService : MediaSessionService() {
 
@@ -24,12 +31,31 @@ class PlaybackService : MediaSessionService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private var positionJob: Job? = null
 
+    companion object {
+        private const val CACHE_SIZE = 512L * 1024 * 1024 // 512 MB
+        private var cache: SimpleCache? = null
+    }
+
     @OptIn(UnstableApi::class)
     override fun onCreate() {
         super.onCreate()
         controller = PlayerController.getInstance(this)
 
+        // Audio cache
+        if (cache == null) {
+            val cacheDir = File(cacheDir, "audio_cache")
+            val evictor = LeastRecentlyUsedCacheEvictor(CACHE_SIZE)
+            val databaseProvider = StandaloneDatabaseProvider(this)
+            cache = SimpleCache(cacheDir, evictor, databaseProvider)
+        }
+
+        val cacheDataSourceFactory = CacheDataSource.Factory()
+            .setCache(cache!!)
+            .setUpstreamDataSourceFactory(DefaultDataSource.Factory(this))
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+
         val player = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(cacheDataSourceFactory))
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)

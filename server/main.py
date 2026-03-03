@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import time
 from typing import Optional
 
 from fastapi import FastAPI, Query, HTTPException
@@ -18,8 +19,41 @@ YDL_OPTS_BASE = {
     "no_color": True,
 }
 
+# --- Cache ---
+
+SEARCH_CACHE_TTL = 300  # 5 minutes
+EXTRACT_CACHE_TTL = 1800  # 30 minutes (CDN URLs expire after ~6h)
+
+_search_cache: dict[str, tuple[float, list[dict]]] = {}
+_extract_cache: dict[str, tuple[float, dict]] = {}
+
+
+def _get_search_cache(key: str) -> list[dict] | None:
+    if key in _search_cache:
+        ts, data = _search_cache[key]
+        if time.time() - ts < SEARCH_CACHE_TTL:
+            return data
+        del _search_cache[key]
+    return None
+
+
+def _get_extract_cache(video_id: str) -> dict | None:
+    if video_id in _extract_cache:
+        ts, data = _extract_cache[video_id]
+        if time.time() - ts < EXTRACT_CACHE_TTL:
+            return data
+        del _extract_cache[video_id]
+    return None
+
+
+# --- yt-dlp ---
 
 def _search_sync(query: str, limit: int) -> list[dict]:
+    cache_key = f"{query}:{limit}"
+    cached = _get_search_cache(cache_key)
+    if cached is not None:
+        return cached
+
     opts = {
         **YDL_OPTS_BASE,
         "extract_flat": True,
@@ -42,10 +76,16 @@ def _search_sync(query: str, limit: int) -> list[dict]:
             "thumbnail": thumbnails[-1]["url"] if thumbnails else None,
             "url": e.get("webpage_url") or e.get("url") or f"https://www.youtube.com/watch?v={e.get('id', '')}",
         })
+
+    _search_cache[cache_key] = (time.time(), tracks)
     return tracks
 
 
 def _extract_sync(video_id: str) -> dict:
+    cached = _get_extract_cache(video_id)
+    if cached is not None:
+        return cached
+
     opts = {
         **YDL_OPTS_BASE,
         "format": "bestaudio[ext=m4a]/bestaudio/best",
@@ -58,12 +98,15 @@ def _extract_sync(video_id: str) -> dict:
     if not info or not info.get("url"):
         raise HTTPException(status_code=404, detail="Could not extract stream URL")
 
-    return {
+    data = {
         "stream_url": info["url"],
         "duration": info.get("duration"),
         "title": info.get("title"),
         "artist": info.get("channel") or info.get("uploader"),
     }
+
+    _extract_cache[video_id] = (time.time(), data)
+    return data
 
 
 @app.get("/health")
