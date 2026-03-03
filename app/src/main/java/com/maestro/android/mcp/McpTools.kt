@@ -27,7 +27,7 @@ object McpTools {
             inputSchema = toolSchema(requiredString("query", "Search query for YouTube")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val query = request.arguments["query"]?.jsonPrimitive?.contentOrNull
+            val query = request.arguments?.get("query")?.jsonPrimitive?.contentOrNull
                 ?: return@addTool errorResult("Missing 'query'")
             val results = ctrl.api.search(query, 1)
             if (results.isEmpty()) return@addTool textResult("No results found for: $query")
@@ -79,7 +79,7 @@ object McpTools {
             inputSchema = toolSchema(requiredString("query", "Search query for YouTube")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val query = request.arguments["query"]?.jsonPrimitive?.contentOrNull
+            val query = request.arguments?.get("query")?.jsonPrimitive?.contentOrNull
                 ?: return@addTool errorResult("Missing 'query'")
             val results = ctrl.api.search(query, 1)
             if (results.isEmpty()) return@addTool textResult("No results found for: $query")
@@ -94,7 +94,7 @@ object McpTools {
             inputSchema = toolSchema(requiredInt("index", "0-based index of the track to remove")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val index = request.arguments["index"]?.jsonPrimitive?.intOrNull
+            val index = request.arguments?.get("index")?.jsonPrimitive?.intOrNull
                 ?: return@addTool errorResult("Missing 'index'")
             val state = ctrl.state.value
             if (index < 0 || index >= state.queue.size) {
@@ -129,7 +129,7 @@ object McpTools {
             inputSchema = toolSchema(requiredNumber("volume", "Volume level from 0.0 (mute) to 1.0 (max)")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val volume = request.arguments["volume"]?.jsonPrimitive?.floatOrNull
+            val volume = request.arguments?.get("volume")?.jsonPrimitive?.floatOrNull
                 ?: return@addTool errorResult("Missing 'volume'")
             ctrl.setVolume(volume)
             textResult("Volume set to ${(volume * 100).toInt()}%")
@@ -141,7 +141,7 @@ object McpTools {
             inputSchema = toolSchema(optionalInt("limit", "Number of tracks to return (1-50, default 10)")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val limit = (request.arguments["limit"]?.jsonPrimitive?.intOrNull ?: 10).coerceIn(1, 50)
+            val limit = (request.arguments?.get("limit")?.jsonPrimitive?.intOrNull ?: 10).coerceIn(1, 50)
             val history = ctrl.state.value.history.take(limit)
             textResult(json.encodeToString(buildJsonObject {
                 putJsonArray("tracks") { history.forEach { add(trackToJson(it)) } }
@@ -155,7 +155,7 @@ object McpTools {
             inputSchema = toolSchema(requiredString("query", "Search query for YouTube")),
         ) { request ->
             val ctrl = controller ?: return@addTool errorResult("Player not initialized")
-            val query = request.arguments["query"]?.jsonPrimitive?.contentOrNull
+            val query = request.arguments?.get("query")?.jsonPrimitive?.contentOrNull
                 ?: return@addTool errorResult("Missing 'query'")
             val results = ctrl.api.search(query, 5)
             textResult(json.encodeToString(buildJsonObject {
