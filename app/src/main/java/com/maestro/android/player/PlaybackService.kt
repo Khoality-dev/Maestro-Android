@@ -7,6 +7,7 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
@@ -80,6 +81,10 @@ class PlaybackService : MediaSessionService() {
                     positionJob?.cancel()
                 }
             }
+
+            override fun onPlayerError(error: PlaybackException) {
+                controller.onPlaybackError(error)
+            }
         })
 
         player.volume = controller.state.value.volume
@@ -95,7 +100,7 @@ class PlaybackService : MediaSessionService() {
             .build()
         exoPlayer = player
 
-        controller.onPlayUrl = { url, track -> playUrl(url, track) }
+        controller.onPlayUrl = { url, track, startPositionMs -> playUrl(url, track, startPositionMs) }
         controller.onPause = { player.pause() }
         controller.onResume = { player.play() }
         controller.onStop = {
@@ -111,7 +116,7 @@ class PlaybackService : MediaSessionService() {
         return START_STICKY
     }
 
-    private fun playUrl(url: String, track: Track) {
+    private fun playUrl(url: String, track: Track, startPositionMs: Long) {
         val player = exoPlayer ?: return
         val metadata = MediaMetadata.Builder()
             .setTitle(track.title)
@@ -121,7 +126,7 @@ class PlaybackService : MediaSessionService() {
             .setUri(url)
             .setMediaMetadata(metadata)
             .build()
-        player.setMediaItem(mediaItem)
+        player.setMediaItem(mediaItem, startPositionMs)
         player.prepare()
         player.play()
     }

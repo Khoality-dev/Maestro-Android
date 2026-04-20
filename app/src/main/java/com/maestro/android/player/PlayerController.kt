@@ -25,11 +25,13 @@ class PlayerController(context: Context) {
     private var _api: MaestroApi? = null
     val api: MaestroApi get() = _api ?: throw IllegalStateException("API not initialized")
 
-    var onPlayUrl: ((String, Track) -> Unit)? = null
+    var onPlayUrl: ((String, Track, Long) -> Unit)? = null
     var onPause: (() -> Unit)? = null
     var onResume: (() -> Unit)? = null
     var onStop: (() -> Unit)? = null
     var onVolumeChange: ((Float) -> Unit)? = null
+
+    private var lastRetryAtMs: Long = 0L
 
     init {
         scope.launch {
@@ -87,11 +89,34 @@ class PlayerController(context: Context) {
                 )
             }
             addToHistory(updatedTrack)
-            onPlayUrl?.invoke(extracted.streamUrl, updatedTrack)
+            onPlayUrl?.invoke(extracted.streamUrl, updatedTrack, 0L)
         } catch (e: Exception) {
             Log.e("PlayerController", "Failed to start track: ${e.message}")
             // Skip to next if extraction fails
             skipToNext()
+        }
+    }
+
+    fun onPlaybackError(error: Throwable?) {
+        val track = _state.value.currentTrack ?: return
+        val now = System.currentTimeMillis()
+        // Guard against tight retry loops if the stream keeps failing.
+        if (now - lastRetryAtMs < 5_000L) {
+            Log.w("PlayerController", "Retry loop detected; skipping to next")
+            scope.launch { skipToNext() }
+            return
+        }
+        lastRetryAtMs = now
+        val resumeFromMs = _state.value.position
+        Log.w("PlayerController", "Playback error (${error?.message}); refreshing stream URL for ${track.id} at ${resumeFromMs}ms")
+        scope.launch {
+            try {
+                val extracted = api.extractStreamUrl(track.id)
+                onPlayUrl?.invoke(extracted.streamUrl, track, resumeFromMs)
+            } catch (e: Exception) {
+                Log.e("PlayerController", "Stream refresh failed: ${e.message}")
+                skipToNext()
+            }
         }
     }
 
