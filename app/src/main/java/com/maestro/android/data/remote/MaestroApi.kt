@@ -42,9 +42,10 @@ class MaestroApi(private val baseUrl: String) {
         return response.results
     }
 
-    suspend fun extractStreamUrl(videoId: String): ExtractResponse {
+    suspend fun extractStreamUrl(videoId: String, refresh: Boolean = false): ExtractResponse {
         return client.get("$baseUrl/extract") {
             parameter("id", videoId)
+            if (refresh) parameter("refresh", true)
         }.body()
     }
 

@@ -111,7 +111,7 @@ class PlayerController(context: Context) {
         Log.w("PlayerController", "Playback error (${error?.message}); refreshing stream URL for ${track.id} at ${resumeFromMs}ms")
         scope.launch {
             try {
-                val extracted = api.extractStreamUrl(track.id)
+                val extracted = api.extractStreamUrl(track.id, refresh = true)
                 onPlayUrl?.invoke(extracted.streamUrl, track, resumeFromMs)
             } catch (e: Exception) {
                 Log.e("PlayerController", "Stream refresh failed: ${e.message}")

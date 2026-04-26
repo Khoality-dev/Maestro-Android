@@ -70,7 +70,18 @@ class PlaybackService : MediaSessionService() {
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == Player.STATE_ENDED) {
-                    controller.onTrackEnded()
+                    val p = exoPlayer
+                    val pos = p?.currentPosition ?: 0L
+                    val playerDur = p?.duration ?: C.TIME_UNSET
+                    val expectedDur = controller.state.value.duration
+                    val effectiveDur =
+                        if (playerDur != C.TIME_UNSET && playerDur > 0) playerDur else expectedDur
+                    if (effectiveDur > 0 && pos < effectiveDur - 5_000) {
+                        // Stream truncated before reaching end — recover with a fresh URL.
+                        controller.onPlaybackError(null)
+                    } else {
+                        controller.onTrackEnded()
+                    }
                 }
             }
 

@@ -81,10 +81,13 @@ def _search_sync(query: str, limit: int) -> list[dict]:
     return tracks
 
 
-def _extract_sync(video_id: str) -> dict:
-    cached = _get_extract_cache(video_id)
-    if cached is not None:
-        return cached
+def _extract_sync(video_id: str, refresh: bool = False) -> dict:
+    if not refresh:
+        cached = _get_extract_cache(video_id)
+        if cached is not None:
+            return cached
+    elif video_id in _extract_cache:
+        del _extract_cache[video_id]
 
     opts = {
         **YDL_OPTS_BASE,
@@ -125,9 +128,9 @@ async def search(q: str = Query(..., min_length=1), limit: int = Query(5, ge=1, 
 
 
 @app.get("/extract")
-async def extract(id: str = Query(..., min_length=1)):
+async def extract(id: str = Query(..., min_length=1), refresh: bool = Query(False)):
     try:
-        data = await asyncio.to_thread(_extract_sync, id)
+        data = await asyncio.to_thread(_extract_sync, id, refresh)
         return data
     except HTTPException:
         raise
