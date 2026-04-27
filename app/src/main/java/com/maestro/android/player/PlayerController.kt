@@ -3,6 +3,7 @@ package com.maestro.android.player
 import android.content.Context
 import android.util.Log
 import com.maestro.android.data.datastore.AppDataStore
+import com.maestro.android.data.datastore.PlayerStorage
 import com.maestro.android.data.model.LoopMode
 import com.maestro.android.data.model.PlaybackState
 import com.maestro.android.data.model.PlayerState
@@ -14,10 +15,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 
-class PlayerController(context: Context) {
-
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val dataStore = AppDataStore(context)
+class PlayerController(
+    private val storage: PlayerStorage,
+    private val apiFactory: (String) -> MaestroApi = { url -> MaestroApi(url) },
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
 
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
@@ -35,27 +38,27 @@ class PlayerController(context: Context) {
 
     init {
         scope.launch {
-            val serverUrl = dataStore.loadServerUrl()
-            _api = MaestroApi(serverUrl)
-            val queue = dataStore.loadQueue()
-            val history = dataStore.loadHistory()
-            val volume = dataStore.loadVolume()
-            val loopMode = dataStore.loadLoopMode()
+            val serverUrl = storage.loadServerUrl()
+            _api = apiFactory(serverUrl)
+            val queue = storage.loadQueue()
+            val history = storage.loadHistory()
+            val volume = storage.loadVolume()
+            val loopMode = storage.loadLoopMode()
             _state.update { it.copy(queue = queue, history = history, volume = volume, loopMode = loopMode) }
         }
     }
 
     suspend fun updateServerUrl(url: String) {
-        dataStore.saveServerUrl(url)
-        _api = MaestroApi(url)
+        storage.saveServerUrl(url)
+        _api = apiFactory(url)
     }
 
     suspend fun getServerUrl(): String {
-        return dataStore.loadServerUrl()
+        return storage.loadServerUrl()
     }
 
     suspend fun isServerConfigured(): Boolean {
-        return dataStore.isServerConfigured()
+        return storage.isServerConfigured()
     }
 
     suspend fun play(track: Track) {
@@ -99,7 +102,7 @@ class PlayerController(context: Context) {
 
     fun onPlaybackError(error: Throwable?) {
         val track = _state.value.currentTrack ?: return
-        val now = System.currentTimeMillis()
+        val now = clock()
         // Guard against tight retry loops if the stream keeps failing.
         if (now - lastRetryAtMs < 5_000L) {
             Log.w("PlayerController", "Retry loop detected; skipping to next")
@@ -221,12 +224,12 @@ class PlayerController(context: Context) {
         val clamped = volume.coerceIn(0f, 1f)
         _state.update { it.copy(volume = clamped) }
         onVolumeChange?.invoke(clamped)
-        scope.launch { dataStore.saveVolume(clamped) }
+        scope.launch { storage.saveVolume(clamped) }
     }
 
     fun setLoopMode(mode: LoopMode) {
         _state.update { it.copy(loopMode = mode) }
-        scope.launch { dataStore.saveLoopMode(mode) }
+        scope.launch { storage.saveLoopMode(mode) }
     }
 
     fun cycleLoopMode() {
@@ -251,11 +254,11 @@ class PlayerController(context: Context) {
             val filtered = s.history.filter { it.id != track.id }
             s.copy(history = (listOf(track) + filtered).take(MAX_HISTORY))
         }
-        scope.launch { dataStore.saveHistory(_state.value.history) }
+        scope.launch { storage.saveHistory(_state.value.history) }
     }
 
     private suspend fun persistQueue() {
-        dataStore.saveQueue(_state.value.queue)
+        storage.saveQueue(_state.value.queue)
     }
 
     companion object {
@@ -267,7 +270,8 @@ class PlayerController(context: Context) {
 
         fun getInstance(context: Context): PlayerController {
             return instance ?: synchronized(this) {
-                instance ?: PlayerController(context.applicationContext).also { instance = it }
+                instance ?: PlayerController(AppDataStore(context.applicationContext))
+                    .also { instance = it }
             }
         }
     }
