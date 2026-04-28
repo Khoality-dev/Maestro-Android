@@ -141,4 +141,5 @@ async def extract(id: str = Query(..., min_length=1), refresh: bool = Query(Fals
 
 if __name__ == "__main__":
     import uvicorn
+    logger.info(f"yt-dlp version: {yt_dlp.version.__version__} (run 'pip install -U yt-dlp' if extraction fails)")
     uvicorn.run(app, host="0.0.0.0", port=29171)
