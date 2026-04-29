@@ -30,6 +30,12 @@ require KEYSTORE_PASSWORD
 require KEY_ALIAS
 require KEY_PASSWORD
 
+# Resolve KEYSTORE_FILE relative to repo root if it isn't absolute.
+case "$KEYSTORE_FILE" in
+    /*) ;;
+    *) KEYSTORE_FILE="$REPO_ROOT/$KEYSTORE_FILE" ;;
+esac
+
 if [ ! -f "$KEYSTORE_FILE" ]; then
     echo "error: KEYSTORE_FILE='$KEYSTORE_FILE' does not exist" >&2
     exit 1
@@ -47,10 +53,13 @@ fi
 
 echo "Uploading secrets to $(gh repo view --json nameWithOwner -q .nameWithOwner) ..."
 
-base64 -w0 "$KEYSTORE_FILE" | gh secret set KEYSTORE_BASE64 --body -
-printf %s "$KEYSTORE_PASSWORD" | gh secret set KEYSTORE_PASSWORD --body -
-printf %s "$KEY_ALIAS"          | gh secret set KEY_ALIAS          --body -
-printf %s "$KEY_PASSWORD"       | gh secret set KEY_PASSWORD       --body -
+# `gh secret set NAME` reads stdin when no --body is given; passing
+# `--body -` would store the literal string "-" instead. Always use
+# explicit --body for short values, stdin for the binary keystore.
+base64 -w0 "$KEYSTORE_FILE" | gh secret set KEYSTORE_BASE64
+gh secret set KEYSTORE_PASSWORD  --body "$KEYSTORE_PASSWORD"
+gh secret set KEY_ALIAS          --body "$KEY_ALIAS"
+gh secret set KEY_PASSWORD       --body "$KEY_PASSWORD"
 
 echo
 echo "Done. Secrets now set:"
