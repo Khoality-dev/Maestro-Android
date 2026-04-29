@@ -27,20 +27,6 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     private val _searchError = MutableStateFlow<String?>(null)
     val searchError: StateFlow<String?> = _searchError.asStateFlow()
 
-    private val _serverUrl = MutableStateFlow("")
-    val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
-
-    private val _needsSetup = MutableStateFlow(true)
-    val needsSetup: StateFlow<Boolean> = _needsSetup.asStateFlow()
-
-    init {
-        viewModelScope.launch {
-            val url = controller.getServerUrl()
-            _serverUrl.value = url
-            _needsSetup.value = !controller.isServerConfigured()
-        }
-    }
-
     private fun ensureServiceStarted() {
         val intent = Intent(context, PlaybackService::class.java)
         context.startService(intent)
@@ -86,18 +72,6 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
     fun setVolume(volume: Float) = controller.setVolume(volume)
     fun setLoopMode(mode: LoopMode) = controller.setLoopMode(mode)
     fun cycleLoopMode() = controller.cycleLoopMode()
-
-    fun completeSetup(url: String) {
-        updateServerUrl(url)
-        _needsSetup.value = false
-    }
-
-    fun updateServerUrl(url: String) {
-        viewModelScope.launch {
-            controller.updateServerUrl(url)
-            _serverUrl.value = url
-        }
-    }
 
     class Factory(private val context: Context) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")

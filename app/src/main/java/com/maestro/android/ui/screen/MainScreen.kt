@@ -28,7 +28,6 @@ fun MainScreen(viewModel: PlayerViewModel) {
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
-    val serverUrl by viewModel.serverUrl.collectAsState()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
@@ -89,11 +88,9 @@ fun MainScreen(viewModel: PlayerViewModel) {
                     history = playerState.history,
                     isSearching = isSearching,
                     searchError = searchError,
-                    serverUrl = serverUrl,
                     onSearch = viewModel::search,
                     onPlay = viewModel::playOrEnqueue,
                     onEnqueue = viewModel::enqueue,
-                    onServerUrlChange = viewModel::updateServerUrl
                 )
                 1 -> QueuePanel(
                     state = playerState,

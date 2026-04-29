@@ -12,7 +12,4 @@ interface PlayerStorage {
     suspend fun loadVolume(): Float
     suspend fun saveLoopMode(mode: LoopMode)
     suspend fun loadLoopMode(): LoopMode
-    suspend fun saveServerUrl(url: String)
-    suspend fun loadServerUrl(): String
-    suspend fun isServerConfigured(): Boolean
 }

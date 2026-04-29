@@ -1,72 +1,66 @@
 package com.maestro.android.data.remote
 
 import com.maestro.android.data.model.Track
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.HttpClientEngine
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.http.isSuccess
-import io.ktor.serialization.kotlinx.json.*
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.search.SearchInfo
+import org.schabi.newpipe.extractor.stream.StreamInfo
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
-@Serializable
-data class SearchResponse(val results: List<Track>)
-
-@Serializable
 data class ExtractResponse(
-    @SerialName("stream_url") val streamUrl: String,
+    val streamUrl: String,
     val duration: Double? = null,
     val title: String? = null,
-    val artist: String? = null
+    val artist: String? = null,
 )
 
-open class MaestroApi(
-    private val baseUrl: String,
-    engine: HttpClientEngine? = null,
-) {
+open class MaestroApi {
 
-    private val client = if (engine != null) {
-        HttpClient(engine) {
-            install(ContentNegotiation) { json(JSON_CONFIG) }
-        }
-    } else {
-        HttpClient(OkHttp) {
-            install(ContentNegotiation) { json(JSON_CONFIG) }
-        }
+    open suspend fun search(query: String, limit: Int = 5): List<Track> = withContext(Dispatchers.IO) {
+        val service = ServiceList.YouTube
+        val handler = service.searchQHFactory.fromQuery(query, listOf("videos"), "")
+        val info = SearchInfo.getInfo(service, handler)
+        info.relatedItems
+            .filterIsInstance<StreamInfoItem>()
+            .take(limit)
+            .mapNotNull { it.toTrack() }
     }
 
-    open suspend fun search(query: String, limit: Int = 5): List<Track> {
-        val response: SearchResponse = client.get("$baseUrl/search") {
-            parameter("q", query)
-            parameter("limit", limit)
-        }.body()
-        return response.results
-    }
-
-    open suspend fun extractStreamUrl(videoId: String, refresh: Boolean = false): ExtractResponse {
-        return client.get("$baseUrl/extract") {
-            parameter("id", videoId)
-            if (refresh) parameter("refresh", true)
-        }.body()
-    }
-
-    open suspend fun healthCheck(): Boolean {
-        return try {
-            client.get("$baseUrl/health").status.isSuccess()
-        } catch (_: Exception) {
-            false
+    open suspend fun extractStreamUrl(videoId: String, refresh: Boolean = false): ExtractResponse =
+        withContext(Dispatchers.IO) {
+            val url = "https://www.youtube.com/watch?v=$videoId"
+            val info = StreamInfo.getInfo(ServiceList.YouTube, url)
+            val audio = info.audioStreams
+                ?.maxByOrNull { stream ->
+                    val avg = stream.averageBitrate
+                    if (avg > 0) avg else stream.bitrate
+                }
+                ?: throw IllegalStateException("No audio stream available for $videoId")
+            ExtractResponse(
+                streamUrl = audio.content,
+                duration = info.duration.toDouble().takeIf { it > 0 },
+                title = info.name,
+                artist = info.uploaderName,
+            )
         }
+
+    private fun StreamInfoItem.toTrack(): Track? {
+        val videoId = url?.let { extractVideoId(it) } ?: return null
+        return Track(
+            id = videoId,
+            title = name ?: "",
+            artist = uploaderName,
+            duration = duration.toDouble().takeIf { it > 0 },
+            thumbnail = thumbnails?.firstOrNull()?.url,
+            url = url ?: "",
+        )
     }
 
-    companion object {
-        private val JSON_CONFIG = Json {
-            ignoreUnknownKeys = true
-            isLenient = true
-            coerceInputValues = true
-        }
+    private fun extractVideoId(url: String): String? {
+        val vMatch = Regex("[?&]v=([\\w-]{11})").find(url)
+        if (vMatch != null) return vMatch.groupValues[1]
+        val shortMatch = Regex("youtu\\.be/([\\w-]{11})").find(url)
+        return shortMatch?.groupValues?.get(1)
     }
 }
