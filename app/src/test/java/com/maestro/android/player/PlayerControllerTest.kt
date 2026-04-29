@@ -70,7 +70,9 @@ class PlayerControllerTest {
         val controller = controller(api = api, scope = this, clock = { now[0] })
         var lastUrl: String? = null
         var lastFromMs: Long = -1
+        val cacheEvictions = mutableListOf<Triple<String, Long, Long>>()
         controller.onPlayUrl = { url, _, fromMs -> lastUrl = url; lastFromMs = fromMs }
+        controller.onClearCacheForTrack = { id, posMs, durMs -> cacheEvictions += Triple(id, posMs, durMs) }
         advanceUntilIdle()
 
         controller.play(track("v1"))
@@ -87,6 +89,9 @@ class PlayerControllerTest {
         assertEquals(true, api.extractCalls[1].refresh)
         assertEquals("https://s2", lastUrl)
         assertEquals(45_000L, lastFromMs)
+        // Corrupted cache tail for the current track must be evicted with the resume position
+        // and duration so PlaybackService can keep the verified-good prefix.
+        assertEquals(listOf(Triple("v1", 45_000L, 200_000L)), cacheEvictions)
     }
 
     @Test
@@ -94,6 +99,8 @@ class PlayerControllerTest {
         val now = longArrayOf(1_000_000L)
         val api = FakeMaestroApi()
         val controller = controller(api = api, scope = this, clock = { now[0] })
+        val cacheEvictions = mutableListOf<String>()
+        controller.onClearCacheForTrack = { id, _, _ -> cacheEvictions += id }
         advanceUntilIdle()
 
         controller.play(track("v1"))
@@ -113,6 +120,8 @@ class PlayerControllerTest {
 
         assertEquals("v2", controller.state.value.currentTrack?.id)
         assertEquals(emptyList<String>(), controller.state.value.queue.map { it.id })
+        // Only the first error path should have evicted; the guarded path skips straight to next.
+        assertEquals(listOf("v1"), cacheEvictions)
     }
 
     @Test

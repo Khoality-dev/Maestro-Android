@@ -10,6 +10,8 @@ import yt_dlp
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+logger.info(f"yt-dlp version: {yt_dlp.version.__version__} (run 'pip install -U yt-dlp' if extraction fails)")
+
 app = FastAPI(title="Maestro Server", version="1.0.0")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 

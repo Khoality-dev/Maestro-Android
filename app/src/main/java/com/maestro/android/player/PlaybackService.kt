@@ -13,6 +13,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
@@ -77,7 +78,8 @@ class PlaybackService : MediaSessionService() {
                     val effectiveDur =
                         if (playerDur != C.TIME_UNSET && playerDur > 0) playerDur else expectedDur
                     if (effectiveDur > 0 && pos < effectiveDur - 5_000) {
-                        // Stream truncated before reaching end — recover with a fresh URL.
+                        // Stream truncated before reaching end — record real cutoff, then recover with a fresh URL.
+                        controller.updatePosition(pos, effectiveDur)
                         controller.onPlaybackError(null)
                     } else {
                         controller.onTrackEnded()
@@ -120,11 +122,34 @@ class PlaybackService : MediaSessionService() {
             stopSelf()
         }
         controller.onVolumeChange = { v -> player.volume = v }
+        controller.onClearCacheForTrack = { trackId, positionMs, durationMs ->
+            evictCacheTail(trackId, positionMs, durationMs)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         super.onStartCommand(intent, flags, startId)
         return START_STICKY
+    }
+
+    @OptIn(UnstableApi::class)
+    private fun evictCacheTail(trackId: String, positionMs: Long, durationMs: Long) {
+        val c = cache ?: return
+        val contentLength = ContentMetadata.getContentLength(c.getContentMetadata(trackId))
+        // Below 10s of progress (or unknown content length / duration) we can't safely
+        // map ms → bytes, so blow away the whole resource and let it re-download.
+        if (contentLength == C.LENGTH_UNSET.toLong() || durationMs <= 0L || positionMs < 10_000L) {
+            c.removeResource(trackId)
+            return
+        }
+        val cutoffMs = positionMs - 10_000L
+        val cutoffBytes = (cutoffMs.toDouble() / durationMs * contentLength).toLong()
+        for (span in c.getCachedSpans(trackId).toList()) {
+            val spanLen = if (span.length == C.LENGTH_UNSET.toLong()) 0L else span.length
+            if (span.position + spanLen > cutoffBytes) {
+                c.removeSpan(span)
+            }
+        }
     }
 
     private fun playUrl(url: String, track: Track, startPositionMs: Long) {
@@ -135,6 +160,7 @@ class PlaybackService : MediaSessionService() {
             .build()
         val mediaItem = MediaItem.Builder()
             .setUri(url)
+            .setCustomCacheKey(track.id)
             .setMediaMetadata(metadata)
             .build()
         player.setMediaItem(mediaItem, startPositionMs)
@@ -176,6 +202,7 @@ class PlaybackService : MediaSessionService() {
         controller.onResume = null
         controller.onStop = null
         controller.onVolumeChange = null
+        controller.onClearCacheForTrack = null
         mediaSession?.run {
             player.release()
             release()

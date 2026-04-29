@@ -33,6 +33,7 @@ class PlayerController(
     var onResume: (() -> Unit)? = null
     var onStop: (() -> Unit)? = null
     var onVolumeChange: ((Float) -> Unit)? = null
+    var onClearCacheForTrack: ((trackId: String, positionMs: Long, durationMs: Long) -> Unit)? = null
 
     private var lastRetryAtMs: Long = 0L
 
@@ -111,7 +112,9 @@ class PlayerController(
         }
         lastRetryAtMs = now
         val resumeFromMs = _state.value.position
+        val durationMs = _state.value.duration
         Log.w("PlayerController", "Playback error (${error?.message}); refreshing stream URL for ${track.id} at ${resumeFromMs}ms")
+        onClearCacheForTrack?.invoke(track.id, resumeFromMs, durationMs)
         scope.launch {
             try {
                 val extracted = api.extractStreamUrl(track.id, refresh = true)
