@@ -14,7 +14,7 @@ import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.ContentMetadata
-import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.NoOpCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -34,7 +34,6 @@ class PlaybackService : MediaSessionService() {
     private var positionJob: Job? = null
 
     companion object {
-        private const val CACHE_SIZE = 512L * 1024 * 1024 // 512 MB
         private var cache: SimpleCache? = null
     }
 
@@ -43,12 +42,13 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         controller = PlayerController.getInstance(this)
 
-        // Audio cache
+        // Persistent audio store: every played track is kept on disk forever.
+        // Lives under filesDir (not cacheDir, which the OS can wipe) and uses
+        // NoOpCacheEvictor so SimpleCache never drops a span on its own.
         if (cache == null) {
-            val cacheDir = File(cacheDir, "audio_cache")
-            val evictor = LeastRecentlyUsedCacheEvictor(CACHE_SIZE)
+            val audioDir = File(filesDir, "audio_cache")
             val databaseProvider = StandaloneDatabaseProvider(this)
-            cache = SimpleCache(cacheDir, evictor, databaseProvider)
+            cache = SimpleCache(audioDir, NoOpCacheEvictor(), databaseProvider)
         }
 
         val cacheDataSourceFactory = CacheDataSource.Factory()
