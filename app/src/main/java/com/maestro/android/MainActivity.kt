@@ -8,19 +8,24 @@ import androidx.activity.viewModels
 import com.maestro.android.ui.screen.MainScreen
 import com.maestro.android.ui.theme.MaestroTheme
 import com.maestro.android.ui.viewmodel.PlayerViewModel
+import com.maestro.android.update.UpdateViewModel
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: PlayerViewModel by viewModels {
         PlayerViewModel.Factory(applicationContext)
     }
+    private val updateViewModel: UpdateViewModel by viewModels {
+        UpdateViewModel.Factory(applicationContext)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        updateViewModel.checkOnLaunch()
         setContent {
             MaestroTheme {
-                MainScreen(viewModel = viewModel)
+                MainScreen(viewModel = viewModel, updateViewModel = updateViewModel)
             }
         }
     }

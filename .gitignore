@@ -11,3 +11,8 @@ local.properties
 /app/build
 __pycache__
 *.pyc
+
+# Secrets — never commit
+.env
+*.keystore
+*.jks

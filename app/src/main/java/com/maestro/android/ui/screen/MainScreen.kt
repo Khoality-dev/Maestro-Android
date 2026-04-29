@@ -15,19 +15,23 @@ import com.maestro.android.data.model.PlaybackState
 import com.maestro.android.ui.component.NowPlayingBar
 import com.maestro.android.ui.component.QueuePanel
 import com.maestro.android.ui.component.SearchPanel
+import com.maestro.android.ui.component.UpdateBanner
 import com.maestro.android.ui.theme.Bg
 import com.maestro.android.ui.theme.Primary
 import com.maestro.android.ui.theme.Surface
 import com.maestro.android.ui.theme.TextMuted
 import com.maestro.android.ui.viewmodel.PlayerViewModel
+import com.maestro.android.update.UpdateViewModel
 import kotlinx.coroutines.launch
 
 @Composable
-fun MainScreen(viewModel: PlayerViewModel) {
+fun MainScreen(viewModel: PlayerViewModel, updateViewModel: UpdateViewModel) {
     val playerState by viewModel.state.collectAsState()
     val searchResults by viewModel.searchResults.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
     val searchError by viewModel.searchError.collectAsState()
+    val availableUpdate by updateViewModel.available.collectAsState()
+    val updateProgress by updateViewModel.progress.collectAsState()
 
     val pagerState = rememberPagerState(pageCount = { 2 })
     val coroutineScope = rememberCoroutineScope()
@@ -40,6 +44,15 @@ fun MainScreen(viewModel: PlayerViewModel) {
             .background(Bg)
             .systemBarsPadding()
     ) {
+        availableUpdate?.let { update ->
+            UpdateBanner(
+                update = update,
+                progress = updateProgress,
+                onUpdate = updateViewModel::startUpdate,
+                onDismiss = updateViewModel::dismiss,
+            )
+        }
+
         // Tab bar
         TabRow(
             selectedTabIndex = pagerState.currentPage,
