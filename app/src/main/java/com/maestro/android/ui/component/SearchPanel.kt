@@ -7,7 +7,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,19 +25,14 @@ fun SearchPanel(
     history: List<Track>,
     isSearching: Boolean,
     searchError: String?,
-    serverUrl: String,
     onSearch: (String) -> Unit,
     onPlay: (Track) -> Unit,
     onEnqueue: (Track) -> Unit,
-    onServerUrlChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     var query by remember { mutableStateOf("") }
-    var showSettings by remember { mutableStateOf(false) }
-    var editingUrl by remember { mutableStateOf(serverUrl) }
 
     Column(modifier = modifier.fillMaxSize()) {
-        // Search bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -64,49 +58,8 @@ fun SearchPanel(
                 ),
                 modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.width(8.dp))
-            IconButton(onClick = { showSettings = !showSettings }) {
-                Icon(Icons.Default.Settings, contentDescription = "Settings", tint = TextMuted)
-            }
         }
 
-        // Settings panel
-        if (showSettings) {
-            LaunchedEffect(serverUrl) { editingUrl = serverUrl }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = editingUrl,
-                    onValueChange = { editingUrl = it },
-                    label = { Text("Server URL", color = TextMuted, fontSize = 11.sp) },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = Border,
-                        focusedContainerColor = Surface,
-                        unfocusedContainerColor = Surface,
-                        cursorColor = MaterialTheme.colorScheme.primary,
-                        focusedTextColor = MaterialTheme.colorScheme.onSurface,
-                        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(Modifier.width(8.dp))
-                Button(
-                    onClick = { onServerUrlChange(editingUrl); showSettings = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                ) {
-                    Text("Save")
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-        }
-
-        // Loading indicator
         if (isSearching) {
             LinearProgressIndicator(
                 modifier = Modifier
@@ -116,7 +69,6 @@ fun SearchPanel(
             )
         }
 
-        // Error
         if (searchError != null) {
             Text(
                 text = searchError,
@@ -126,7 +78,6 @@ fun SearchPanel(
             )
         }
 
-        // Results / History
         val displayTracks = if (searchResults.isNotEmpty()) searchResults else history
         val headerText = if (searchResults.isNotEmpty()) "Results" else if (history.isNotEmpty()) "Recent" else null
 

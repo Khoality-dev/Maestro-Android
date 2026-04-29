@@ -23,7 +23,6 @@ class AppDataStore(private val context: Context) : PlayerStorage {
         private val KEY_HISTORY = stringPreferencesKey("history")
         private val KEY_VOLUME = floatPreferencesKey("volume")
         private val KEY_LOOP_MODE = stringPreferencesKey("loop_mode")
-        private val KEY_SERVER_URL = stringPreferencesKey("server_url")
     }
 
     override suspend fun saveQueue(queue: List<Track>) {
@@ -62,17 +61,5 @@ class AppDataStore(private val context: Context) : PlayerStorage {
         return context.dataStore.data.map { prefs ->
             prefs[KEY_LOOP_MODE]?.let { LoopMode.valueOf(it) } ?: LoopMode.OFF
         }.first()
-    }
-
-    override suspend fun saveServerUrl(url: String) {
-        context.dataStore.edit { it[KEY_SERVER_URL] = url }
-    }
-
-    override suspend fun loadServerUrl(): String {
-        return context.dataStore.data.map { it[KEY_SERVER_URL] ?: "" }.first()
-    }
-
-    override suspend fun isServerConfigured(): Boolean {
-        return context.dataStore.data.map { it[KEY_SERVER_URL] != null }.first()
     }
 }

@@ -225,7 +225,7 @@ class PlayerControllerTest {
         clock: () -> Long = { 1_000_000L },
     ): PlayerController = PlayerController(
         storage = storage,
-        apiFactory = { _ -> api },
+        apiFactory = { api },
         scope = scope,
         clock = clock,
     )
@@ -238,7 +238,6 @@ private class FakePlayerStorage : PlayerStorage {
     var savedLoopMode: LoopMode = LoopMode.OFF
     var savedQueue: List<Track> = emptyList()
     var savedHistory: List<Track> = emptyList()
-    var savedServerUrl: String = "http://test"
 
     override suspend fun saveQueue(queue: List<Track>) { savedQueue = queue }
     override suspend fun loadQueue(): List<Track> = savedQueue
@@ -248,15 +247,12 @@ private class FakePlayerStorage : PlayerStorage {
     override suspend fun loadVolume(): Float = savedVolume
     override suspend fun saveLoopMode(mode: LoopMode) { savedLoopMode = mode }
     override suspend fun loadLoopMode(): LoopMode = savedLoopMode
-    override suspend fun saveServerUrl(url: String) { savedServerUrl = url }
-    override suspend fun loadServerUrl(): String = savedServerUrl
-    override suspend fun isServerConfigured(): Boolean = savedServerUrl.isNotBlank()
 }
 
 private class FakeMaestroApi(
     var extractResult: ExtractResponse = ExtractResponse(streamUrl = "https://default", duration = 60.0),
     var searchResult: List<Track> = emptyList(),
-) : MaestroApi(baseUrl = "http://test") {
+) : MaestroApi() {
     data class ExtractCall(val videoId: String, val refresh: Boolean)
     val extractCalls = mutableListOf<ExtractCall>()
 
@@ -266,6 +262,4 @@ private class FakeMaestroApi(
     }
 
     override suspend fun search(query: String, limit: Int): List<Track> = searchResult
-
-    override suspend fun healthCheck(): Boolean = true
 }

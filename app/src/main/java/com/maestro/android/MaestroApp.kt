@@ -3,13 +3,16 @@ package com.maestro.android
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import com.maestro.android.data.remote.NewPipeOkHttpDownloader
 import com.maestro.android.mcp.McpServer
 import com.maestro.android.player.PlayerController
+import org.schabi.newpipe.extractor.NewPipe
 
 class MaestroApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        NewPipe.init(NewPipeOkHttpDownloader.getInstance())
         PlayerController.getInstance(this)
         createNotificationChannel()
         McpServer.start()

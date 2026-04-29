@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.update
 
 class PlayerController(
     private val storage: PlayerStorage,
-    private val apiFactory: (String) -> MaestroApi = { url -> MaestroApi(url) },
+    apiFactory: () -> MaestroApi = { MaestroApi() },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     private val clock: () -> Long = System::currentTimeMillis,
 ) {
@@ -25,8 +25,7 @@ class PlayerController(
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
-    private var _api: MaestroApi? = null
-    val api: MaestroApi get() = _api ?: throw IllegalStateException("API not initialized")
+    val api: MaestroApi by lazy(apiFactory)
 
     var onPlayUrl: ((String, Track, Long) -> Unit)? = null
     var onPause: (() -> Unit)? = null
@@ -39,27 +38,12 @@ class PlayerController(
 
     init {
         scope.launch {
-            val serverUrl = storage.loadServerUrl()
-            _api = apiFactory(serverUrl)
             val queue = storage.loadQueue()
             val history = storage.loadHistory()
             val volume = storage.loadVolume()
             val loopMode = storage.loadLoopMode()
             _state.update { it.copy(queue = queue, history = history, volume = volume, loopMode = loopMode) }
         }
-    }
-
-    suspend fun updateServerUrl(url: String) {
-        storage.saveServerUrl(url)
-        _api = apiFactory(url)
-    }
-
-    suspend fun getServerUrl(): String {
-        return storage.loadServerUrl()
-    }
-
-    suspend fun isServerConfigured(): Boolean {
-        return storage.isServerConfigured()
     }
 
     suspend fun play(track: Track) {

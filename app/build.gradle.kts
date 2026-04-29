@@ -78,16 +78,15 @@ dependencies {
     implementation("androidx.media3:media3-datasource:1.5.1")
     implementation("androidx.media3:media3-database:1.5.1")
 
-    // Ktor (HTTP client for maestro-server API)
-    val ktorVersion = "3.0.3"
-    implementation("io.ktor:ktor-client-core:$ktorVersion")
-    implementation("io.ktor:ktor-client-okhttp:$ktorVersion")
-    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+    // NewPipeExtractor (in-process YouTube extraction; replaces maestro-server)
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // MCP SDK + Ktor CIO server engine
+    val ktorVersion = "3.0.3"
     implementation("io.modelcontextprotocol:kotlin-sdk:0.8.3")
     implementation("io.ktor:ktor-server-cio:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
 
     // Kotlinx Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
@@ -104,5 +103,4 @@ dependencies {
     // Unit tests
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
-    testImplementation("io.ktor:ktor-client-mock:$ktorVersion")
 }
