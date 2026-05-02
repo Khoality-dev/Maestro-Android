@@ -2,6 +2,7 @@ package com.maestro.android.ui.viewmodel
 
 import android.content.Context
 import android.content.Intent
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -29,7 +30,7 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
 
     private fun ensureServiceStarted() {
         val intent = Intent(context, PlaybackService::class.java)
-        context.startService(intent)
+        ContextCompat.startForegroundService(context, intent)
     }
 
     fun search(query: String) {

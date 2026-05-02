@@ -1,8 +1,12 @@
 package com.maestro.android.player
 
+import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.annotation.OptIn
+import androidx.core.app.NotificationCompat
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -21,6 +25,7 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.maestro.android.MainActivity
+import com.maestro.android.MaestroApp
 import com.maestro.android.data.model.Track
 import kotlinx.coroutines.*
 import java.io.File
@@ -34,6 +39,7 @@ class PlaybackService : MediaSessionService() {
     private var positionJob: Job? = null
 
     companion object {
+        private const val NOTIFICATION_ID = 1001
         private var cache: SimpleCache? = null
     }
 
@@ -129,8 +135,41 @@ class PlaybackService : MediaSessionService() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Promote to foreground immediately. startForegroundService() requires
+        // startForeground() within 5s; Media3 1.5.x's auto-promotion can miss this
+        // when the player is driven by an in-process controller rather than an
+        // external MediaController, so we don't rely on it. Once the player is
+        // playing, DefaultMediaNotificationProvider replaces this with the rich
+        // media-style notification.
+        startInForeground()
         super.onStartCommand(intent, flags, startId)
         return START_STICKY
+    }
+
+    private fun startInForeground() {
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
+        val notification: Notification = NotificationCompat.Builder(this, MaestroApp.PLAYBACK_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_media_play)
+            .setContentTitle("Maestro")
+            .setContentText("Preparing playback…")
+            .setContentIntent(contentIntent)
+            .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(
+                NOTIFICATION_ID,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+            )
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
     }
 
     @OptIn(UnstableApi::class)
