@@ -62,6 +62,17 @@ class PlayerViewModel(private val context: Context) : ViewModel() {
         viewModelScope.launch { controller.enqueue(track) }
     }
 
+    /** Re-scan the on-disk cache so the Saved library reflects newly downloaded tracks. */
+    fun refreshDownloaded() = controller.refreshDownloaded()
+
+    /** Queue up songs similar to [track] (and start playing if nothing is playing). */
+    fun playSimilar(track: Track) {
+        ensureServiceStarted()
+        viewModelScope.launch { controller.enqueueSimilar(track) }
+    }
+
+    fun toggleAutoplaySimilar() = controller.toggleAutoplaySimilar()
+
     fun pause() = controller.pause()
     fun resume() = controller.resume()
     fun togglePlayPause() = controller.togglePlayPause()

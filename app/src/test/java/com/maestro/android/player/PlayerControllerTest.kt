@@ -238,15 +238,21 @@ private class FakePlayerStorage : PlayerStorage {
     var savedLoopMode: LoopMode = LoopMode.OFF
     var savedQueue: List<Track> = emptyList()
     var savedHistory: List<Track> = emptyList()
+    var savedTracks: List<Track> = emptyList()
+    var savedAutoplaySimilar: Boolean = false
 
     override suspend fun saveQueue(queue: List<Track>) { savedQueue = queue }
     override suspend fun loadQueue(): List<Track> = savedQueue
     override suspend fun saveHistory(history: List<Track>) { savedHistory = history }
     override suspend fun loadHistory(): List<Track> = savedHistory
+    override suspend fun saveSavedTracks(tracks: List<Track>) { savedTracks = tracks }
+    override suspend fun loadSavedTracks(): List<Track> = savedTracks
     override suspend fun saveVolume(volume: Float) { savedVolume = volume }
     override suspend fun loadVolume(): Float = savedVolume
     override suspend fun saveLoopMode(mode: LoopMode) { savedLoopMode = mode }
     override suspend fun loadLoopMode(): LoopMode = savedLoopMode
+    override suspend fun saveAutoplaySimilar(enabled: Boolean) { savedAutoplaySimilar = enabled }
+    override suspend fun loadAutoplaySimilar(): Boolean = savedAutoplaySimilar
 }
 
 private class FakeMaestroApi(
@@ -262,4 +268,6 @@ private class FakeMaestroApi(
     }
 
     override suspend fun search(query: String, limit: Int): List<Track> = searchResult
+
+    override suspend fun getRelated(videoId: String, limit: Int): List<Track> = emptyList()
 }

@@ -14,12 +14,9 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.ContentMetadata
-import androidx.media3.datasource.cache.NoOpCacheEvictor
-import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
@@ -28,7 +25,6 @@ import com.maestro.android.MainActivity
 import com.maestro.android.MaestroApp
 import com.maestro.android.data.model.Track
 import kotlinx.coroutines.*
-import java.io.File
 
 class PlaybackService : MediaSessionService() {
 
@@ -40,7 +36,6 @@ class PlaybackService : MediaSessionService() {
 
     companion object {
         private const val NOTIFICATION_ID = 1001
-        private var cache: SimpleCache? = null
     }
 
     @OptIn(UnstableApi::class)
@@ -48,17 +43,11 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         controller = PlayerController.getInstance(this)
 
-        // Persistent audio store: every played track is kept on disk forever.
-        // Lives under filesDir (not cacheDir, which the OS can wipe) and uses
-        // NoOpCacheEvictor so SimpleCache never drops a span on its own.
-        if (cache == null) {
-            val audioDir = File(filesDir, "audio_cache")
-            val databaseProvider = StandaloneDatabaseProvider(this)
-            cache = SimpleCache(audioDir, NoOpCacheEvictor(), databaseProvider)
-        }
+        // Permanent audio store shared with PlayerController (see AudioCache).
+        val cache = AudioCache.get(this)
 
         val cacheDataSourceFactory = CacheDataSource.Factory()
-            .setCache(cache!!)
+            .setCache(cache)
             .setUpstreamDataSourceFactory(DefaultDataSource.Factory(this))
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
 
@@ -132,6 +121,8 @@ class PlaybackService : MediaSessionService() {
         controller.onClearCacheForTrack = { trackId, positionMs, durationMs ->
             evictCacheTail(trackId, positionMs, durationMs)
         }
+        // A track may have finished downloading in a previous session — surface it now.
+        controller.refreshDownloaded()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -174,7 +165,7 @@ class PlaybackService : MediaSessionService() {
 
     @OptIn(UnstableApi::class)
     private fun evictCacheTail(trackId: String, positionMs: Long, durationMs: Long) {
-        val c = cache ?: return
+        val c = AudioCache.get(this)
         val contentLength = ContentMetadata.getContentLength(c.getContentMetadata(trackId))
         // Below 10s of progress (or unknown content length / duration) we can't safely
         // map ms → bytes, so blow away the whole resource and let it re-download.

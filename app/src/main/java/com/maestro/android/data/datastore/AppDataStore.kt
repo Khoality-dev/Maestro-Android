@@ -1,6 +1,7 @@
 package com.maestro.android.data.datastore
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -21,8 +22,10 @@ class AppDataStore(private val context: Context) : PlayerStorage {
     companion object {
         private val KEY_QUEUE = stringPreferencesKey("queue")
         private val KEY_HISTORY = stringPreferencesKey("history")
+        private val KEY_SAVED = stringPreferencesKey("saved_tracks")
         private val KEY_VOLUME = floatPreferencesKey("volume")
         private val KEY_LOOP_MODE = stringPreferencesKey("loop_mode")
+        private val KEY_AUTOPLAY_SIMILAR = booleanPreferencesKey("autoplay_similar")
     }
 
     override suspend fun saveQueue(queue: List<Track>) {
@@ -45,6 +48,16 @@ class AppDataStore(private val context: Context) : PlayerStorage {
         }.first()
     }
 
+    override suspend fun saveSavedTracks(tracks: List<Track>) {
+        context.dataStore.edit { it[KEY_SAVED] = json.encodeToString(tracks) }
+    }
+
+    override suspend fun loadSavedTracks(): List<Track> {
+        return context.dataStore.data.map { prefs ->
+            prefs[KEY_SAVED]?.let { json.decodeFromString<List<Track>>(it) } ?: emptyList()
+        }.first()
+    }
+
     override suspend fun saveVolume(volume: Float) {
         context.dataStore.edit { it[KEY_VOLUME] = volume }
     }
@@ -61,5 +74,13 @@ class AppDataStore(private val context: Context) : PlayerStorage {
         return context.dataStore.data.map { prefs ->
             prefs[KEY_LOOP_MODE]?.let { LoopMode.valueOf(it) } ?: LoopMode.OFF
         }.first()
+    }
+
+    override suspend fun saveAutoplaySimilar(enabled: Boolean) {
+        context.dataStore.edit { it[KEY_AUTOPLAY_SIMILAR] = enabled }
+    }
+
+    override suspend fun loadAutoplaySimilar(): Boolean {
+        return context.dataStore.data.map { it[KEY_AUTOPLAY_SIMILAR] ?: false }.first()
     }
 }

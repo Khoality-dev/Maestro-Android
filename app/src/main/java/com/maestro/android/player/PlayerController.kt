@@ -20,6 +20,9 @@ class PlayerController(
     apiFactory: () -> MaestroApi = { MaestroApi() },
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main),
     private val clock: () -> Long = System::currentTimeMillis,
+    // Reports which track IDs are fully downloaded to disk. Defaults to "nothing
+    // cached" so unit tests need no Android cache; the real app wires in AudioCache.
+    private val downloadedIdsProvider: () -> Set<String> = { emptySet() },
 ) {
 
     private val _state = MutableStateFlow(PlayerState())
@@ -40,10 +43,29 @@ class PlayerController(
         scope.launch {
             val queue = storage.loadQueue()
             val history = storage.loadHistory()
+            val saved = storage.loadSavedTracks()
             val volume = storage.loadVolume()
             val loopMode = storage.loadLoopMode()
-            _state.update { it.copy(queue = queue, history = history, volume = volume, loopMode = loopMode) }
+            val autoplay = storage.loadAutoplaySimilar()
+            val downloaded = withContext(Dispatchers.IO) { downloadedIdsProvider() }
+            _state.update {
+                it.copy(
+                    queue = queue,
+                    history = history,
+                    savedTracks = saved,
+                    volume = volume,
+                    loopMode = loopMode,
+                    autoplaySimilar = autoplay,
+                    downloadedIds = downloaded
+                )
+            }
         }
+    }
+
+    /** Recompute which saved tracks are fully on disk. Safe to call repeatedly. */
+    fun refreshDownloaded() {
+        val ids = downloadedIdsProvider()
+        _state.update { it.copy(downloadedIds = ids) }
     }
 
     suspend fun play(track: Track) {
@@ -61,6 +83,30 @@ class PlayerController(
     }
 
     private suspend fun startTrack(track: Track) {
+        addToLibrary(track)
+
+        // Offline-first: if the whole track is already on disk, play straight from the
+        // cache and skip the network extraction entirely. This makes saved songs work
+        // with no internet, and makes replays of cached songs instant.
+        val cachedIds = downloadedIdsProvider()
+        if (track.id in cachedIds) {
+            _state.update {
+                it.copy(
+                    state = PlaybackState.PLAYING,
+                    currentTrack = track,
+                    position = 0L,
+                    duration = ((track.duration ?: 0.0) * 1000).toLong(),
+                    downloadedIds = cachedIds
+                )
+            }
+            addToHistory(track)
+            // The cache key is track.id, so the upstream URI is never opened for a
+            // fully-cached track — any stable URI works as the media item's address.
+            val cacheUri = track.url.ifBlank { "https://www.youtube.com/watch?v=${track.id}" }
+            onPlayUrl?.invoke(cacheUri, track, 0L)
+            return
+        }
+
         try {
             val extracted = api.extractStreamUrl(track.id)
             val updatedTrack = track.copy(
@@ -77,6 +123,7 @@ class PlayerController(
                 )
             }
             addToHistory(updatedTrack)
+            addToLibrary(updatedTrack)
             onPlayUrl?.invoke(extracted.streamUrl, updatedTrack, 0L)
         } catch (e: Exception) {
             Log.e("PlayerController", "Failed to start track: ${e.message}")
@@ -154,6 +201,8 @@ class PlayerController(
                     val next = current.queue.first()
                     _state.update { it.copy(queue = it.queue.drop(1)) }
                     startTrack(next)
+                } else if (current.autoplaySimilar && current.currentTrack != null) {
+                    playSimilarRadio(current.currentTrack)
                 } else {
                     stop()
                 }
@@ -161,6 +210,57 @@ class PlayerController(
         }
         persistQueue()
     }
+
+    /**
+     * Radio: continue from [seed] with similar songs. Plays the first recommendation
+     * and queues the rest. Falls back to stopping if recommendations can't be fetched
+     * (e.g. offline) so we never spin.
+     */
+    private suspend fun playSimilarRadio(seed: Track) {
+        val related = try {
+            api.getRelated(seed.id)
+        } catch (e: Exception) {
+            Log.w("PlayerController", "Radio fetch failed: ${e.message}")
+            emptyList()
+        }
+        val recentIds = (_state.value.history.map { it.id } + seed.id).toSet()
+        val fresh = related.filterNot { it.id in recentIds }
+        if (fresh.isEmpty()) {
+            stop()
+            return
+        }
+        _state.update { it.copy(queue = it.queue + fresh.drop(1)) }
+        startTrack(fresh.first())
+    }
+
+    /** Append songs similar to [seed] to the queue (explicit "Play similar" action). */
+    suspend fun enqueueSimilar(seed: Track) {
+        val related = try {
+            api.getRelated(seed.id)
+        } catch (e: Exception) {
+            Log.w("PlayerController", "Similar fetch failed: ${e.message}")
+            return
+        }
+        val existing = (_state.value.queue.map { it.id } +
+            listOfNotNull(_state.value.currentTrack?.id)).toSet()
+        val fresh = related.filterNot { it.id in existing }
+        if (fresh.isEmpty()) return
+        // Nothing playing yet → start the first one, queue the rest. Otherwise just queue.
+        if (_state.value.currentTrack == null || _state.value.state == PlaybackState.STOPPED) {
+            _state.update { it.copy(queue = it.queue + fresh.drop(1)) }
+            startTrack(fresh.first())
+        } else {
+            _state.update { it.copy(queue = it.queue + fresh) }
+        }
+        persistQueue()
+    }
+
+    fun setAutoplaySimilar(enabled: Boolean) {
+        _state.update { it.copy(autoplaySimilar = enabled) }
+        scope.launch { storage.saveAutoplaySimilar(enabled) }
+    }
+
+    fun toggleAutoplaySimilar() = setAutoplaySimilar(!_state.value.autoplaySimilar)
 
     fun stop() {
         _state.update {
@@ -233,6 +333,8 @@ class PlayerController(
     }
 
     fun onTrackEnded() {
+        // A track that played to the end is now fully on disk — refresh the offline set.
+        refreshDownloaded()
         scope.launch { skipToNext() }
     }
 
@@ -244,21 +346,37 @@ class PlayerController(
         scope.launch { storage.saveHistory(_state.value.history) }
     }
 
+    /** Remember a track's metadata so it can be shown (and replayed) from the offline library later. */
+    private fun addToLibrary(track: Track) {
+        val before = _state.value.savedTracks
+        // Nothing to do if this exact entry (same metadata) is already at the front.
+        if (before.firstOrNull() == track) return
+        _state.update { s ->
+            val filtered = s.savedTracks.filterNot { it.id == track.id }
+            s.copy(savedTracks = (listOf(track) + filtered).take(MAX_LIBRARY))
+        }
+        scope.launch { storage.saveSavedTracks(_state.value.savedTracks) }
+    }
+
     private suspend fun persistQueue() {
         storage.saveQueue(_state.value.queue)
     }
 
     companion object {
         const val MAX_HISTORY = 50
+        const val MAX_LIBRARY = 500
 
         @Volatile
         var instance: PlayerController? = null
             private set
 
         fun getInstance(context: Context): PlayerController {
+            val appContext = context.applicationContext
             return instance ?: synchronized(this) {
-                instance ?: PlayerController(AppDataStore(context.applicationContext))
-                    .also { instance = it }
+                instance ?: PlayerController(
+                    storage = AppDataStore(appContext),
+                    downloadedIdsProvider = { AudioCache.fullyCachedTrackIds(appContext) },
+                ).also { instance = it }
             }
         }
     }

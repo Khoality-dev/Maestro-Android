@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.DownloadDone
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.maestro.android.data.model.Track
+import com.maestro.android.ui.theme.Primary
 import com.maestro.android.ui.theme.Surface
 import com.maestro.android.ui.theme.TextMuted
 import com.maestro.android.util.formatDuration
@@ -27,7 +30,9 @@ fun TrackItem(
     track: Track,
     onClick: () -> Unit,
     onEnqueue: (() -> Unit)? = null,
+    onPlaySimilar: (() -> Unit)? = null,
     isPlaying: Boolean = false,
+    isDownloaded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -70,13 +75,24 @@ fun TrackItem(
 
         // Title + artist
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = track.title,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 13.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (isDownloaded) {
+                    Icon(
+                        Icons.Default.DownloadDone,
+                        contentDescription = "Available offline",
+                        tint = Primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                }
+                Text(
+                    text = track.title,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 13.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
             Row {
                 if (track.artist != null) {
                     Text(
@@ -98,6 +114,18 @@ fun TrackItem(
                         fontSize = 11.sp
                     )
                 }
+            }
+        }
+
+        // Play similar / radio
+        if (onPlaySimilar != null) {
+            IconButton(onClick = onPlaySimilar, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = "Play similar songs",
+                    tint = TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
             }
         }
 

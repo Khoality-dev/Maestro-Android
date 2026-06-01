@@ -4,13 +4,17 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.disk.DiskCache
+import coil.memory.MemoryCache
 import com.maestro.android.data.remote.NewPipeOkHttpDownloader
 import com.maestro.android.mcp.McpServer
 import com.maestro.android.player.PlayerController
 import org.schabi.newpipe.extractor.NewPipe
 import java.io.File
 
-class MaestroApp : Application() {
+class MaestroApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
@@ -30,6 +34,26 @@ class MaestroApp : Application() {
         if (prefs.getBoolean(KEY_AUDIO_CACHE_PURGED_V1, false)) return
         File(filesDir, "audio_cache").deleteRecursively()
         prefs.edit().putBoolean(KEY_AUDIO_CACHE_PURGED_V1, true).apply()
+    }
+
+    // Persistent thumbnail cache so cover art shows offline. Coil's default disk
+    // cache lives in cacheDir (which the OS can wipe); pin it under filesDir and
+    // ignore cache headers so thumbnails are kept for the saved library.
+    override fun newImageLoader(): ImageLoader {
+        return ImageLoader.Builder(this)
+            .memoryCache {
+                MemoryCache.Builder(this)
+                    .maxSizePercent(0.25)
+                    .build()
+            }
+            .diskCache {
+                DiskCache.Builder()
+                    .directory(File(filesDir, "thumbnail_cache"))
+                    .maxSizeBytes(64L * 1024 * 1024)
+                    .build()
+            }
+            .respectCacheHeaders(false)
+            .build()
     }
 
     private fun createNotificationChannel() {

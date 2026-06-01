@@ -26,6 +26,7 @@ fun NowPlayingBar(
     onSkip: () -> Unit,
     onStop: () -> Unit,
     onCycleLoop: () -> Unit,
+    onToggleAutoplay: () -> Unit,
     onVolumeChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -91,6 +92,15 @@ fun NowPlayingBar(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Radio / autoplay similar
+            IconButton(onClick = onToggleAutoplay) {
+                Icon(
+                    imageVector = Icons.Default.Radio,
+                    contentDescription = if (state.autoplaySimilar) "Radio on" else "Radio off",
+                    tint = if (state.autoplaySimilar) Primary else TextMuted
+                )
+            }
+
             // Loop mode
             IconButton(onClick = onCycleLoop) {
                 Icon(

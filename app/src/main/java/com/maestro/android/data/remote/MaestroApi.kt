@@ -45,6 +45,19 @@ open class MaestroApi {
             )
         }
 
+    /** Related / "similar" songs for a video, used for recommendations and radio autoplay. */
+    open suspend fun getRelated(videoId: String, limit: Int = 20): List<Track> =
+        withContext(Dispatchers.IO) {
+            val url = "https://www.youtube.com/watch?v=$videoId"
+            val info = StreamInfo.getInfo(ServiceList.YouTube, url)
+            (info.relatedItems ?: emptyList())
+                .filterIsInstance<StreamInfoItem>()
+                .mapNotNull { it.toTrack() }
+                .filter { it.id != videoId }
+                .distinctBy { it.id }
+                .take(limit)
+        }
+
     private fun StreamInfoItem.toTrack(): Track? {
         val videoId = url?.let { extractVideoId(it) } ?: return null
         return Track(

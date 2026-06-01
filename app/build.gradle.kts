@@ -79,7 +79,7 @@ dependencies {
     implementation("androidx.media3:media3-database:1.5.1")
 
     // NewPipeExtractor (in-process YouTube extraction; replaces maestro-server)
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.2")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // MCP SDK + Ktor CIO server engine
