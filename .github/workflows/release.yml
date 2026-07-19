@@ -93,6 +93,9 @@ jobs:
         with:
           name: maestro-${{ steps.version.outputs.name }}
           path: ${{ steps.apk.outputs.path }}
+          # The APK is also attached to the GitHub Release below, which is free
+          # and permanent. This artifact is only for debugging a failed run.
+          retention-days: 7
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
